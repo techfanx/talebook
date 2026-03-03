@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>{{ book.title }}</title>
 
   <base href="{{RES}}/static/candle-reader/" />
 
   <link rel="icon" href="{{RES}}/logo/favicon.ico" />
   <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="anonymous">
-  <link rel="preload" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap">
+  <link rel="preload" as="style" onload="this.rel='stylesheet'"
+    href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap">
   <link rel="stylesheet" crossorigin href="style.css">
 
   <script src="js/epub-v0.3.88.js"></script>
-  <script  type="module">
+  <script type="module">
     import { Reader } from "./candle-reader.es.js"
     new Reader('#app', {
       debug: false,
@@ -26,6 +29,7 @@
     })
   </script>
 </head>
+
 <body>
   <div id="app"></div>
 
@@ -41,7 +45,7 @@
       background-color: #1976D2;
       color: white;
       border: none;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
       cursor: pointer;
       z-index: 9999;
       display: flex;
@@ -50,13 +54,15 @@
       font-size: 24px;
       transition: background-color 0.3s;
     }
+
     #tts-btn:hover {
       background-color: #1565C0;
     }
+
     #tts-btn.playing {
       background-color: #D32F2F;
     }
-    
+
     #tts-modal {
       display: none;
       position: fixed;
@@ -66,24 +72,28 @@
       background: white;
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       z-index: 10000;
       width: 300px;
       max-width: 90%;
     }
+
     #tts-modal.active {
       display: block;
     }
+
     #tts-modal h3 {
       margin-top: 0;
       color: #333;
     }
+
     #tts-modal label {
       display: block;
       margin-top: 10px;
       font-size: 14px;
       color: #666;
     }
+
     #tts-modal input {
       width: 100%;
       padding: 8px;
@@ -92,10 +102,12 @@
       border-radius: 4px;
       box-sizing: border-box;
     }
+
     #tts-modal .buttons {
       margin-top: 20px;
       text-align: right;
     }
+
     #tts-modal button {
       padding: 6px 12px;
       margin-left: 10px;
@@ -103,23 +115,36 @@
       border: none;
       border-radius: 4px;
     }
-    #tts-save { background: #1976D2; color: white; }
-    #tts-cancel { background: #ccc; }
-    
+
+    #tts-save {
+      background: #1976D2;
+      color: white;
+    }
+
+    #tts-cancel {
+      background: #ccc;
+    }
+
     #tts-overlay {
       display: none;
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.3);
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.3);
       z-index: 9998;
     }
-    #tts-overlay.active { display: block; }
+
+    #tts-overlay.active {
+      display: block;
+    }
 
     #tts-status {
       position: fixed;
       bottom: 80px;
       right: 20px;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       padding: 5px 10px;
       border-radius: 5px;
@@ -137,10 +162,10 @@
     <h3>TTS Settings</h3>
     <label for="tts-api-url">API URL (e.g. http://localhost:8000/v1/audio/speech)</label>
     <input type="text" id="tts-api-url" placeholder="Enter TTS API URL">
-    
+
     <label for="tts-voice">Voice / Model (Optional)</label>
     <input type="text" id="tts-voice" placeholder="e.g. qwen3-tts-1.7b">
-    
+
     <div class="buttons">
       <button id="tts-cancel">Cancel</button>
       <button id="tts-save">Save</button>
@@ -150,7 +175,7 @@
   <audio id="tts-audio" style="display: none;"></audio>
 
   <script>
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
       const btn = document.getElementById('tts-btn');
       const modal = document.getElementById('tts-modal');
       const overlay = document.getElementById('tts-overlay');
@@ -160,14 +185,17 @@
       const btnCancel = document.getElementById('tts-cancel');
       const audio = document.getElementById('tts-audio');
       const statusLabel = document.getElementById('tts-status');
-      
+
       let isPlaying = false;
+      let isPaused = false;
+      let isContinuousReading = false;
+      let lastReadText = "";
 
       // Load settings
       inputUrl.value = localStorage.getItem('tts_api_url') || '';
       inputVoice.value = localStorage.getItem('tts_voice') || '';
 
-      function showStatus(msg, duration=3000) {
+      function showStatus(msg, duration = 3000) {
         statusLabel.textContent = msg;
         statusLabel.style.display = 'block';
         if (duration) {
@@ -176,114 +204,311 @@
       }
 
       function stopPlaying() {
+        isContinuousReading = false;
+        isPlaying = false;
+        isPaused = false;
         audio.pause();
         audio.currentTime = 0;
-        isPlaying = false;
+        audio.removeAttribute('src'); // clear src
         btn.classList.remove('playing');
         btn.textContent = '🔊';
-        showStatus('Stopped');
+        showStatus('已停止 (Stopped)');
       }
 
-      // Context menu (Right click) to open settings
-      btn.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        modal.classList.add('active');
-        overlay.classList.add('active');
-      });
-
-      // Left click to play/stop
-      btn.addEventListener('click', async function(e) {
-        if (isPlaying) {
-          stopPlaying();
-          return;
-        }
-
-        const apiUrl = localStorage.getItem('tts_api_url');
-        if (!apiUrl) {
-          showStatus('Please configure TTS API (Right Click)', 4000);
-          return;
-        }
-
-        // Try to get text from epubjs iframe
-        // candle-reader usually contains an iframe with the epub content
-        let text = "";
+      function extractTextNodesFromIframe() {
         try {
           const iframe = document.querySelector('iframe');
-          if (iframe && iframe.contentDocument) {
-            text = iframe.contentDocument.body.innerText || iframe.contentDocument.body.textContent;
-          }
-        } catch(err) {
-          console.error("Could not read iframe content", err);
-        }
+          if (!iframe || !iframe.contentDocument) return [];
 
-        if (!text || text.trim() === "") {
-          showStatus("No text found on current page");
+          const body = iframe.contentDocument.body;
+          if (!body) return [];
+
+          const walker = iframe.contentDocument.createTreeWalker(body, NodeFilter.SHOW_TEXT, null, false);
+          const nodes = [];
+          let node;
+          while ((node = walker.nextNode())) {
+            const text = node.textContent.trim();
+            if (text.length > 0) {
+              const parent = node.parentElement;
+              if (parent) {
+                const style = iframe.contentWindow.getComputedStyle(parent);
+                // Basic visibility check
+                if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                  nodes.push({ text: text, node: node });
+                }
+              }
+            }
+          }
+          return nodes;
+        } catch (err) {
+          console.error("Could not extract text nodes from iframe", err);
+          return [];
+        }
+      }
+
+      function highlightNode(nodeData) {
+        try {
+          const iframe = document.querySelector('iframe');
+          if (!iframe || !iframe.contentDocument) return;
+
+          // Clear previous highlights
+          const prevHighlights = iframe.contentDocument.querySelectorAll('.tts-highlight');
+          prevHighlights.forEach(el => {
+            const parent = el.parentNode;
+            if (parent) {
+              parent.replaceChild(iframe.contentDocument.createTextNode(el.textContent), el);
+              parent.normalize();
+            }
+          });
+
+          if (!nodeData || !nodeData.node) return;
+
+          // Wrap text node in span for highlighting
+          const span = iframe.contentDocument.createElement('span');
+          span.className = 'tts-highlight';
+          span.style.backgroundColor = 'rgba(25, 118, 210, 0.3)';
+          span.style.borderBottom = '2px solid #1976D2';
+
+          const newTextNode = iframe.contentDocument.createTextNode(nodeData.text);
+          span.appendChild(newTextNode);
+
+          if (nodeData.node.parentNode) {
+            nodeData.node.parentNode.replaceChild(span, nodeData.node);
+            nodeData.node = newTextNode; // update reference
+
+            // Scroll into view
+            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        } catch (e) {
+          console.error("Highlight error: ", e);
+        }
+      }
+
+      // Re-implement chunk splitting
+      function splitTextIntoChunks(text) {
+        const regex = /[^。！？.!?、，；,;]+[。！？.!?、，；,;]?/g;
+        let match;
+        const result = [];
+        while ((match = regex.exec(text)) !== null) {
+          const chunk = match[0].trim();
+          if (chunk) result.push(chunk);
+        }
+        if (result.length === 0 && text.trim()) result.push(text.trim());
+        return result;
+      }
+
+      let textNodesQueue = [];
+      let currentPlayingChunk = "";
+
+      async function readNextTextNode() {
+        if (!isPlaying) return;
+
+        if (textNodesQueue.length === 0) {
+          // Reached end of current page
+          highlightNode(null); // Clear highlights
+          if (!isContinuousReading) {
+            stopPlaying();
+            return;
+          }
+
+          showStatus("翻页中... (Turning page...)", 0);
+          turnToNextPage();
+
+          setTimeout(() => {
+            if (!isContinuousReading) return;
+            const newNodes = extractTextNodesFromIframe();
+            const newTextContent = newNodes.map(n => n.text).join("");
+            if (newNodes.length === 0 || newTextContent === lastReadText) {
+              // Reached end of book or failed to navigate
+              showStatus("到达末尾 (End of book)");
+              stopPlaying();
+              return;
+            }
+            lastReadText = newTextContent;
+            textNodesQueue = newNodes;
+            readNextTextNode();
+          }, 800); // Wait for page turning animation rendering
           return;
         }
 
-        text = text.trim();
-        showStatus("Requesting TTS...", 0);
-        btn.textContent = '⏳';
+        const nodeData = textNodesQueue.shift();
 
-        try {
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              input: text,
-              text: text,
-              model: localStorage.getItem('tts_voice') || 'default'
-            })
-          });
+        // Split node data into sentences if it's too long
+        const sentences = splitTextIntoChunks(nodeData.text);
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        // Highlight the current whole node immediately 
+        highlightNode(nodeData);
+
+        // Helper function to process sentences sequentially
+        const processSentences = async (sentencesArray) => {
+          for (let i = 0; i < sentencesArray.length; i++) {
+            if (!isPlaying) return;
+            await playTTSChunk(sentencesArray[i]);
+
+            // Wait for audio to finish playing before moving to the next sentence
+            await new Promise((resolve) => {
+              const checkEnd = () => {
+                if (!isPlaying) { resolve(); return; }
+                // Listen to audio end event locally to resolve the promise
+                audio.addEventListener('ended', function onEnd() {
+                  audio.removeEventListener('ended', onEnd);
+                  resolve();
+                });
+                // Wait just in case it fails immediately avoiding loops
+                audio.addEventListener('error', function onError() {
+                  audio.removeEventListener('error', onError);
+                  resolve();
+                });
+              };
+              checkEnd();
+            });
+          }
+        };
+
+        // Play all sentences of this paragraph/node and wait
+        await processSentences(sentences);
+
+        // Once finished all sentences in this node, proceed to next node
+        if (isPlaying) {
+          readNextTextNode();
+        }
+      }
+
+      async function playTTSChunk(text) {
+        return new Promise(async (resolve, reject) => {
+          const apiUrl = localStorage.getItem('tts_api_url');
+          if (!apiUrl) {
+            showStatus('请先配置API地址 (Please configure TTS API UI)', 4000);
+            stopPlaying();
+            resolve();
+            return;
           }
 
-          const blob = await response.blob();
-          const audioUrl = URL.createObjectURL(blob);
-          audio.src = audioUrl;
-          
-          audio.play();
-          isPlaying = true;
-          btn.classList.add('playing');
-          btn.textContent = '⏹️';
-          showStatus("Playing...", 3000);
+          if (!text || text === "") {
+            resolve(); // Skip empty chunks
+            return;
+          }
 
-          audio.onended = () => {
-             stopPlaying();
-             URL.revokeObjectURL(audioUrl);
-          };
+          showStatus("请求语音中... (Requesting TTS...)", 0);
+          btn.textContent = '⏳';
 
-        } catch (error) {
-          console.error("TTS Error:", error);
-          showStatus("TTS Request failed", 4000);
-          btn.textContent = '🔊';
+          try {
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                input: text,
+                text: text,
+                model: localStorage.getItem('tts_voice') || 'default'
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const audioUrl = URL.createObjectURL(blob);
+            audio.src = audioUrl;
+
+            audio.play();
+            isPlaying = true;
+            isPaused = false;
+            currentPlayingChunk = text;
+            btn.classList.add('playing');
+            btn.textContent = '⏸️'; // Pause icon
+            showStatus("朗读中... (Playing...)", 3000);
+
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl);
+              // The 'ended' event is caught by the Promise in processSentences
+            };
+
+            audio.onerror = () => {
+              console.error("Audio playback error");
+              resolve();
+            }
+
+            resolve();
+
+          } catch (error) {
+            console.error("TTS Error:", error);
+            showStatus("请求失败 (TTS Request failed)", 4000);
+            stopPlaying();
+            resolve();
+          }
+        });
+      }
+
+      // Context menu (Right click) to open settings or stop
+      btn.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        // If playing, right click will fully STOP, otherwise open settings
+        if (isPlaying || isPaused) {
+          stopPlaying();
+        } else {
+          modal.classList.add('active');
+          overlay.classList.add('active');
         }
+      });
+
+      // Left click to play/pause/resume
+      btn.addEventListener('click', async function (e) {
+        if (isPlaying && !isPaused) {
+          // Pause
+          audio.pause();
+          isPaused = true;
+          btn.textContent = '▶️';
+          showStatus("已暂停 (Paused), 右键停止 (Right-click to stop)");
+          return;
+        }
+
+        if (isPlaying && isPaused) {
+          // Resume
+          audio.play();
+          isPaused = false;
+          btn.textContent = '⏸️';
+          showStatus("继续朗读 (Resumed)");
+          return;
+        }
+
+        // Start new reading session
+        isContinuousReading = true; // Auto-enable continuous reading on new start
+        const nodes = extractTextNodesFromIframe();
+        if (!nodes || nodes.length === 0) {
+          showStatus("未找到可用文本 (No text found)", 3000);
+          return;
+        }
+
+        lastReadText = nodes.map(n => n.text).join("");
+        textNodesQueue = nodes;
+        isPlaying = true; // Initialize state to prevent immediate exits
+        readNextTextNode();
       });
 
       // Settings modal handlers
-      btnSave.addEventListener('click', function() {
+      btnSave.addEventListener('click', function () {
         localStorage.setItem('tts_api_url', inputUrl.value.trim());
         localStorage.setItem('tts_voice', inputVoice.value.trim());
         modal.classList.remove('active');
         overlay.classList.remove('active');
-        showStatus("Settings Saved");
+        showStatus("已保存 (Settings Saved)");
       });
 
-      btnCancel.addEventListener('click', function() {
+      btnCancel.addEventListener('click', function () {
         modal.classList.remove('active');
         overlay.classList.remove('active');
         inputUrl.value = localStorage.getItem('tts_api_url') || '';
         inputVoice.value = localStorage.getItem('tts_voice') || '';
       });
 
-      overlay.addEventListener('click', function() {
+      overlay.addEventListener('click', function () {
         btnCancel.click();
       });
     });
   </script>
 </body>
+
 </html>
