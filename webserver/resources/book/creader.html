@@ -28,5 +28,262 @@
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- TTS UI -->
+  <style>
+    #tts-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 25px;
+      background-color: #1976D2;
+      color: white;
+      border: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      transition: background-color 0.3s;
+    }
+    #tts-btn:hover {
+      background-color: #1565C0;
+    }
+    #tts-btn.playing {
+      background-color: #D32F2F;
+    }
+    
+    #tts-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 10000;
+      width: 300px;
+      max-width: 90%;
+    }
+    #tts-modal.active {
+      display: block;
+    }
+    #tts-modal h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    #tts-modal label {
+      display: block;
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    #tts-modal input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    #tts-modal .buttons {
+      margin-top: 20px;
+      text-align: right;
+    }
+    #tts-modal button {
+      padding: 6px 12px;
+      margin-left: 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+    }
+    #tts-save { background: #1976D2; color: white; }
+    #tts-cancel { background: #ccc; }
+    
+    #tts-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 9998;
+    }
+    #tts-overlay.active { display: block; }
+
+    #tts-status {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      display: none;
+      z-index: 9999;
+    }
+  </style>
+
+  <button id="tts-btn" title="Left click: Play/Stop current page. Right click: Settings">🔊</button>
+  <div id="tts-status"></div>
+
+  <div id="tts-overlay"></div>
+  <div id="tts-modal">
+    <h3>TTS Settings</h3>
+    <label for="tts-api-url">API URL (e.g. http://localhost:8000/v1/audio/speech)</label>
+    <input type="text" id="tts-api-url" placeholder="Enter TTS API URL">
+    
+    <label for="tts-voice">Voice / Model (Optional)</label>
+    <input type="text" id="tts-voice" placeholder="e.g. qwen3-tts-1.7b">
+    
+    <div class="buttons">
+      <button id="tts-cancel">Cancel</button>
+      <button id="tts-save">Save</button>
+    </div>
+  </div>
+
+  <audio id="tts-audio" style="display: none;"></audio>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const btn = document.getElementById('tts-btn');
+      const modal = document.getElementById('tts-modal');
+      const overlay = document.getElementById('tts-overlay');
+      const inputUrl = document.getElementById('tts-api-url');
+      const inputVoice = document.getElementById('tts-voice');
+      const btnSave = document.getElementById('tts-save');
+      const btnCancel = document.getElementById('tts-cancel');
+      const audio = document.getElementById('tts-audio');
+      const statusLabel = document.getElementById('tts-status');
+      
+      let isPlaying = false;
+
+      // Load settings
+      inputUrl.value = localStorage.getItem('tts_api_url') || '';
+      inputVoice.value = localStorage.getItem('tts_voice') || '';
+
+      function showStatus(msg, duration=3000) {
+        statusLabel.textContent = msg;
+        statusLabel.style.display = 'block';
+        if (duration) {
+          setTimeout(() => statusLabel.style.display = 'none', duration);
+        }
+      }
+
+      function stopPlaying() {
+        audio.pause();
+        audio.currentTime = 0;
+        isPlaying = false;
+        btn.classList.remove('playing');
+        btn.textContent = '🔊';
+        showStatus('Stopped');
+      }
+
+      // Context menu (Right click) to open settings
+      btn.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        modal.classList.add('active');
+        overlay.classList.add('active');
+      });
+
+      // Left click to play/stop
+      btn.addEventListener('click', async function(e) {
+        if (isPlaying) {
+          stopPlaying();
+          return;
+        }
+
+        const apiUrl = localStorage.getItem('tts_api_url');
+        if (!apiUrl) {
+          showStatus('Please configure TTS API (Right Click)', 4000);
+          return;
+        }
+
+        // Try to get text from epubjs iframe
+        // candle-reader usually contains an iframe with the epub content
+        let text = "";
+        try {
+          const iframe = document.querySelector('iframe');
+          if (iframe && iframe.contentDocument) {
+            text = iframe.contentDocument.body.innerText || iframe.contentDocument.body.textContent;
+          }
+        } catch(err) {
+          console.error("Could not read iframe content", err);
+        }
+
+        if (!text || text.trim() === "") {
+          showStatus("No text found on current page");
+          return;
+        }
+
+        text = text.trim();
+        showStatus("Requesting TTS...", 0);
+        btn.textContent = '⏳';
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              input: text,
+              text: text,
+              model: localStorage.getItem('tts_voice') || 'default'
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const blob = await response.blob();
+          const audioUrl = URL.createObjectURL(blob);
+          audio.src = audioUrl;
+          
+          audio.play();
+          isPlaying = true;
+          btn.classList.add('playing');
+          btn.textContent = '⏹️';
+          showStatus("Playing...", 3000);
+
+          audio.onended = () => {
+             stopPlaying();
+             URL.revokeObjectURL(audioUrl);
+          };
+
+        } catch (error) {
+          console.error("TTS Error:", error);
+          showStatus("TTS Request failed", 4000);
+          btn.textContent = '🔊';
+        }
+      });
+
+      // Settings modal handlers
+      btnSave.addEventListener('click', function() {
+        localStorage.setItem('tts_api_url', inputUrl.value.trim());
+        localStorage.setItem('tts_voice', inputVoice.value.trim());
+        modal.classList.remove('active');
+        overlay.classList.remove('active');
+        showStatus("Settings Saved");
+      });
+
+      btnCancel.addEventListener('click', function() {
+        modal.classList.remove('active');
+        overlay.classList.remove('active');
+        inputUrl.value = localStorage.getItem('tts_api_url') || '';
+        inputVoice.value = localStorage.getItem('tts_voice') || '';
+      });
+
+      overlay.addEventListener('click', function() {
+        btnCancel.click();
+      });
+    });
+  </script>
 </body>
 </html>

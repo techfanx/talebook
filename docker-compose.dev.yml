@@ -1,0 +1,22 @@
+version: "2.4"
+services:
+  # dev service
+  talebook:
+    image: talebook/talebook
+    volumes:
+      - /tmp/demo:/data
+      - ./webserver:/var/www/talebook/webserver
+      - ./server.py:/var/www/talebook/server.py
+    ports:
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Shanghai
+    depends_on:
+      - douban-rs-api
+
+  # optional, for meta plugins
+  douban-rs-api:
+    image: ghcr.io/cxfksword/douban-api-rs
