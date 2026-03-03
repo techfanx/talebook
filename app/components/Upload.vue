@@ -74,11 +74,8 @@ function do_upload() {
     var data = new FormData();
     // Vuetify 3 file input returns array
     if (ebooks.value) {
-        if (Array.isArray(ebooks.value)) {
-            data.append('ebook', ebooks.value[0]);
-        } else {
-            data.append('ebook', ebooks.value);
-        }
+        const file = Array.isArray(ebooks.value) ? ebooks.value[0] : ebooks.value;
+        data.append('ebook', file, encodeURIComponent(file.name));
     }
     
     $backend('/book/upload', {

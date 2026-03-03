@@ -384,9 +384,10 @@ class BookEdit(BaseHandler):
         if "cover" not in self.request.files:
             return {"err": "params.cover.required", "msg": _("请选择要上传的封面图")}
 
+        import urllib.parse
         file_info = self.request.files["cover"][0]
         file_data = file_info["body"]
-        file_name = file_info["filename"]
+        file_name = urllib.parse.unquote(file_info["filename"])
 
         # 检查文件类型
         allowed_types = [
@@ -659,9 +660,10 @@ class BookUpload(BaseHandler):
             return s.group(0)
 
     def get_upload_file(self):
+        import urllib.parse
         # for unittest mock
         p = self.request.files["ebook"][0]
-        return (p["filename"], p["body"])
+        return (urllib.parse.unquote(p["filename"]), p["body"])
 
     @js
     def post(self):

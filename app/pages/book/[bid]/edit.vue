@@ -344,7 +344,7 @@ const uploadCover = async () => {
     saving.value = true;
     
     const formData = new FormData();
-    formData.append('cover', coverFile.value);
+    formData.append('cover', coverFile.value, encodeURIComponent(coverFile.value.name));
     
     try {
         const coverRsp = await $backend('/book/' + book.value.id + '/edit', {
@@ -380,7 +380,7 @@ const save_book = async () => {
         // 如果有封面文件，先上传封面
         if (coverFile.value) {
             const formData = new FormData();
-            formData.append('cover', coverFile.value);
+            formData.append('cover', coverFile.value, encodeURIComponent(coverFile.value.name));
             
             const coverRsp = await $backend('/book/' + book.value.id + '/edit', {
                 method: 'POST',
